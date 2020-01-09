@@ -5,7 +5,7 @@
 Summary: Advanced Linux Sound Architecture (ALSA) utilities
 Name:    alsa-utils
 Version: 1.1.0
-Release: 8%{?prever_dot}%{?dist}
+Release: 10%{?prever_dot}%{?dist}
 License: GPLv2+
 Group:   Applications/Multimedia
 URL:     http://www.alsa-project.org/
@@ -20,6 +20,7 @@ Source14: alsa-delay.1
 Patch1:  alsa-utils-1.1.0-alsaloop-static.patch
 Patch2:  alsa-utils-1.1.0-alsainfoman.patch
 Patch3:  alsa-utils-1.1.0-ca0106.patch
+Patch4:  alsa-utils-1.1.0-alsaloop-availmin.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: alsa-lib-devel >= %{version}
 BuildRequires: ncurses-devel
@@ -37,6 +38,7 @@ Architecture (ALSA).
 %patch1 -p1 -b .alsaloop-static
 %patch2 -p1 -b .alsainfoman
 %patch3 -p1 -b .ca0106
+%patch4 -p1 -b .alsaloop-availmin
 # sample rate stuff
 tar xzf %{SOURCE1} 
 
@@ -64,7 +66,8 @@ autoheader
 autoconf
 automake --foreign --copy --add-missing
 %configure CFLAGS="$RPM_OPT_FLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
-           --sbindir=/sbin --disable-alsaconf --disable-bat
+           --sbindir=/sbin --with-asound-state-dir=/etc \
+           --disable-alsaconf --disable-bat
 %{__make} %{?_smp_mflags}
 %{__cp} %{SOURCE4} .
 
@@ -137,6 +140,14 @@ if [ -s /etc/alsa/asound.state -a ! -s /etc/asound.state ] ; then
 fi
 
 %changelog
+* Tue Nov 22 2016 Jaroslav Kysela <jkysela@redhat.com> 1.1.0-10
+- Fix for /etc/asound.state (was /var/lib/alsa/asound.state)
+- Resolves: rhbz#1396274
+
+* Thu Oct 20 2016 Jaroslav Kysela <jkysela@redhat.com> 1.1.0-9
+- Fix for alsaloop (100% CPU)
+- Resolves: rhbz#1108292
+
 * Wed Mar 23 2016 Jaroslav Kysela <jkysela@redhat.com> 1.1.0-8
 - A small fix for alsa-delay script
 - Fix for ca0106 alsactl init
