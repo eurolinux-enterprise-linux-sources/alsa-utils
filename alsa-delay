@@ -1,11 +1,18 @@
 #!/bin/bash
 
-version=0.0.9
+version=0.0.10
+
 tmpdir=$TMPDIR
 if test -z "$tmpdir"; then
 	tmpdir="/tmp"
 fi
 tmpdir=$tmpdir/alsa-delay-script
+
+vardir=$VARDIR
+if test -z "$vardir"; then
+	vardir="/var/lib/misc"
+fi
+vardir=$vardir/alsa-delay-script
 
 delay=
 pcard=
@@ -16,6 +23,7 @@ cdev=
 yes=
 quiet=
 clean=
+revert=
 
 pdevice="default:%s"
 cdevice="plughw:%s,%s,%s"
@@ -73,6 +81,7 @@ Operation modes:
   -q, --quiet		quiet mode
   -y, --yes		do not ask any questions - answer is always yes
   -c, --clean           clean temporary directory
+  -r, --revert          revert configuration changes (modprobe, pulse-audio)
   --tmpdir=<DIR>        set temporary directory
 Alsaloop options:
   --pdevice=<DEV>       force playback device
@@ -83,7 +92,7 @@ Alsaloop options:
   --arg=<ARG>           pass this argument to all threads
   --mix=<ARG>           redirect ALSA mixer controls to OSS mixer
 			(default is Master)
-  --pa			Redirect PA to alsaloop
+  --pa			Redirect pulse-audio to alsaloop
 
 Note: For devices, the string %s is replaced with the card index
       and second string %s is replaced with the device index
@@ -103,8 +112,10 @@ do
 		quiet=true ;;
 	-y|--yes)
 		yes=true ;;
-	-c)
+	-c|--clean)
 		clean="full" ;;
+	-r|--revert)
+		revert=true ;;
 	--tmpdir*)
 		case "$#,$1" in
 		*,*=*)
@@ -270,7 +281,15 @@ check_environment() {
 			exit 1
 		fi
 	fi
+	if ! test -d $vardir ; then
+        	mkdir -p $vardir
+		if ! test -d $vardir; then
+			echo >&2 "Unable to create directory $vardir."
+			exit 1
+		fi
+	fi
 	echo "Using temporary tree: $tmpdir"
+	echo "Using backup tree   : $vardir"
 	test -x /bin/depmod && depmodbin=/bin/depmod
 	test -x /sbin/depmod && depmodbin=/sbin/depmod
 	if test -z "$depmodbin"; then
@@ -382,8 +401,8 @@ kernel_modules() {
 		fi
 	done
 	echo "Kernel modules ready:"
+	sleep 4
 	cat /proc/asound/cards
-	sleep 0.5
 }
 
 # If $package is alsa-driver then remove current modules
@@ -407,6 +426,23 @@ function clean() {
 		fi
 	fi
 	echo " success"
+}
+
+function revert() {
+	echo "Running: $chkconfig_prg alsaloop off"
+	$chkconfig_prg alsaloop off
+	rm -v /etc/init.d/alsaloop
+	if test -f "$vardir/modprobe.conf"; then
+		echo -n "Copying original $modprobeconf from $vardir:"
+		cp "$vardir/modprobe.conf" $modprobeconf || exit 1
+		echo " success"
+	fi
+	if test -f "$vardir/pulse-default.pa"; then
+		echo -n "Copying original /etc/pulse/default.pa from $vardir:"
+		cp "$vardir/pulse-default.pa" /etc/pulse/default.pa || exit 1
+		echo " success"
+	fi
+	echo "Revert done. Reboot the system."
 }
 
 function reindex_modprobe_conf() {
@@ -481,13 +517,13 @@ EOF
 	else
 		local index=1
 		echo -n "" > $modprobeconf.new
-		declare -a modules printed
+		declare -A modules printed
 		for mod in $(cat /proc/asound/modules | grep -Ev "^2[6789]" | colrm 1 3); do
 			if test "$mod" != "snd_aloop" -a "$mod" != "snd-aloop"; then
-				if test -z ${modules[$mod]}; then
-					modules[$mod]=$index
+				if test -z "${modules[$mod]}"; then
+					modules[$mod]="$index"
 				else
-					modules[$mod]="${modules[mod]},$index"
+					modules[$mod]="${modules[$mod]},$index"
 				fi
 				echo "alias snd-card-$index $mod" >> $modprobeconf.new
 				echo "options snd-card-$index index=$index" >> $modprobeconf.new
@@ -496,7 +532,7 @@ EOF
 		done
 		for mod in $(cat /proc/asound/modules | grep -Ev "^2[6789]" | colrm 1 3); do
 			if test "$mod" != "snd_aloop" -a "$mod" != "snd-aloop"; then
-				if test -z ${printed[$mod]}; then
+				if test -z "${printed[$mod]}"; then
 					echo "options $mod index=${modules[$mod]}" >> $modprobeconf.new
 					printed[$mod]=yes
 				fi
@@ -508,7 +544,14 @@ alias snd-card-0 snd-aloop
 options snd-card-0 index=0
 options snd-aloop index=0
 EOF
+	if test -r $modprobeconf; then
+		cp $modprobeconf "$vardir/modprobe.conf" || exit 1
+	else
+		touch "$vardir/modprobe.conf" || exit 1
+	fi
 	mv $modprobeconf.new $modprobeconf || exit 1
+	echo "$modprobeconf changed"
+	echo "  *** use --revert option to revert configuration changes ***"
 }
 
 function modify_modprobe_conf() {
@@ -751,8 +794,10 @@ function modify_pa_conf() {
 				    -e 's/^load-module module-detect/#load-module module-detect # commented by alsa-delay/' \
 				    -e "s/^### Automatically load driver modules for Bluetooth hardware/load-module module-alsa-card device_id=Loopback\nload-module module-alsa-card device_id=$pcardid\n\n### Automatically load driver modules for Bluetooth hardware/" > /etc/pulse/default.pa.new
 			if test -s /etc/pulse/default.pa.new; then
+				cp /etc/pulse/default.pa "$vardir/pulse-default.pa"
 				mv /etc/pulse/default.pa.new /etc/pulse/default.pa
 				echo "/etc/pulse/default.pa changed"
+				echo "  *** use --revert option to revert configuration changes ***"
 			fi
 		fi
 	fi
@@ -798,6 +843,11 @@ check_environment
 
 if test -n "$clean"; then
 	clean
+fi
+
+if test -n "$revert"; then
+	revert
+	exit 0
 fi
 
 kill_alsaloop

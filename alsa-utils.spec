@@ -1,30 +1,25 @@
 #define  prever         rc3
 #define  prever_dot     .rc3
-%define sampleratever 0.1.7
+%define sampleratever 0.1.8
 
 Summary: Advanced Linux Sound Architecture (ALSA) utilities
 Name:    alsa-utils
-Version: 1.0.22
-Release: 9%{?prever_dot}%{?dist}
+Version: 1.1.0
+Release: 8%{?prever_dot}%{?dist}
 License: GPLv2+
 Group:   Applications/Multimedia
 URL:     http://www.alsa-project.org/
 Source:  ftp://ftp.alsa-project.org/pub/utils/alsa-utils-%{version}%{?prever}.tar.bz2
 Source1: http://www.mega-nerd.com/SRC/libsamplerate-%{sampleratever}.tar.gz
 Source4: alsaunmute
-Source6: alsa-info.sh
+Source5: alsaunmute.1
 Source10: alsa.rules
 Source11: alsactl.conf
 Source12: alsa-delay
-Patch1:  alsaloop.patch
-Patch2:  alsaloop2.patch
-Patch3:  fixes.patch
-Patch4:  alsactl1.patch
-Patch5:  alsaloop3.patch
-Patch6:  fixes2.patch
-Patch7:  alsaloop4.patch
-Patch8:  fixes3.patch
-Patch9:  fixes4.patch
+Source14: alsa-delay.1
+Patch1:  alsa-utils-1.1.0-alsaloop-static.patch
+Patch2:  alsa-utils-1.1.0-alsainfoman.patch
+Patch3:  alsa-utils-1.1.0-ca0106.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: alsa-lib-devel >= %{version}
 BuildRequires: ncurses-devel
@@ -39,15 +34,9 @@ Architecture (ALSA).
 
 %prep
 %setup -q -n %{name}-%{version}%{?prever}
-%patch1 -p1 -b .alsaloop
-%patch2 -p1 -b .alsaloop2
-%patch3 -p1 -b .fixes
-%patch4 -p1 -b .alsactl1
-%patch5 -p1 -b .alsaloop3
-%patch6 -p1 -b .fixes2
-%patch7 -p1 -b .alsaloop4
-%patch8 -p1 -b .fixes3
-%patch9 -p1 -b .fixes4
+%patch1 -p1 -b .alsaloop-static
+%patch2 -p1 -b .alsainfoman
+%patch3 -p1 -b .ca0106
 # sample rate stuff
 tar xzf %{SOURCE1} 
 
@@ -63,10 +52,19 @@ cp src/samplerate.h ../alsaloop
 cd ..
 
 aclocal
+cp Makefile.am Makefile.am.ok
+cp configure.ac configure.ac.ok
+cat /usr/bin/gettextize | sed -e 's/\/dev\/tty/ignore/g' > gettextize
+bash ./gettextize -c -f --no-changelog
+cp Makefile.am.ok Makefile.am
+cp configure.ac.ok configure.ac
+rm -f acinclude.m4
+aclocal
 autoheader
-autoconf  
+autoconf
 automake --foreign --copy --add-missing
-%configure CFLAGS="$RPM_OPT_FLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" --sbindir=/sbin --disable-alsaconf
+%configure CFLAGS="$RPM_OPT_FLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
+           --sbindir=/sbin --disable-alsaconf --disable-bat
 %{__make} %{?_smp_mflags}
 %{__cp} %{SOURCE4} .
 
@@ -81,7 +79,8 @@ install -p -m 644 %{SOURCE10} $RPM_BUILD_ROOT/etc/udev/rules.d/90-alsa.rules
 
 # Install support utilities
 mkdir -p -m755 $RPM_BUILD_ROOT/bin
-install -p -m 755 alsaunmute %{buildroot}/bin/
+install -p -m 755 %{SOURCE4} %{buildroot}/bin/
+install -p -m 644 %{SOURCE5} %{buildroot}/%{_mandir}/man1/
 
 # Link alsactl to /usr/sbin
 mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
@@ -99,12 +98,17 @@ mkdir -p -m 755 %{buildroot}/etc/alsa
 install -p -m 644 %{SOURCE11} %{buildroot}/etc/alsa
 touch %{buildroot}/etc/asound.state
 
-# Install alsa-info.sh script
-install -p -m 755 %{SOURCE6} %{buildroot}/usr/bin/alsa-info
+# Move alsa-info.sh script
+mv %{buildroot}/sbin/alsa-info.sh %{buildroot}/usr/bin/alsa-info
 ln -s alsa-info %{buildroot}/usr/bin/alsa-info.sh
+ln -s alsa-info.sh.1 %{buildroot}/%{_mandir}/man1/alsa-info.1
 
 # Install alsa-delay script
 install -p -m 755 %{SOURCE12} %{buildroot}/usr/sbin/alsa-delay
+install -p -m 644 %{SOURCE14} %{buildroot}/%{_mandir}/man1/alsa-delay.1
+
+# Remove extra files
+rm -rf %{buildroot}/lib/udev
 
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -133,6 +137,21 @@ if [ -s /etc/alsa/asound.state -a ! -s /etc/asound.state ] ; then
 fi
 
 %changelog
+* Wed Mar 23 2016 Jaroslav Kysela <jkysela@redhat.com> 1.1.0-8
+- A small fix for alsa-delay script
+- Fix for ca0106 alsactl init
+- Resolves: rhbz#894032
+- Resolves: rhbz#1320099
+
+* Tue Jan 12 2016 Jaroslav Kysela <jkysela@redhat.com> 1.1.0-3
+- updated to 1.1.0 final
+- alsa-info.sh is part of alsa-utils package now
+- Resolves: rhbz#1245602
+- Resolves: rhbz#1248512
+- Resolves: rhbz#1006466
+- Resolves: rhbz#881734
+- Resolves: rhbz#894032
+
 * Mon Jan 12 2015 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-9
 - fix 'aplay -d' regression (Z-stream)
 - Resolves: rbhz#1148479
