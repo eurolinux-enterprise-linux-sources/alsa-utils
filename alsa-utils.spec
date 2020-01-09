@@ -5,7 +5,7 @@
 Summary: Advanced Linux Sound Architecture (ALSA) utilities
 Name:    alsa-utils
 Version: 1.0.22
-Release: 7%{?prever_dot}%{?dist}
+Release: 9%{?prever_dot}%{?dist}
 License: GPLv2+
 Group:   Applications/Multimedia
 URL:     http://www.alsa-project.org/
@@ -24,6 +24,7 @@ Patch5:  alsaloop3.patch
 Patch6:  fixes2.patch
 Patch7:  alsaloop4.patch
 Patch8:  fixes3.patch
+Patch9:  fixes4.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: alsa-lib-devel >= %{version}
 BuildRequires: ncurses-devel
@@ -46,6 +47,7 @@ Architecture (ALSA).
 %patch6 -p1 -b .fixes2
 %patch7 -p1 -b .alsaloop4
 %patch8 -p1 -b .fixes3
+%patch9 -p1 -b .fixes4
 # sample rate stuff
 tar xzf %{SOURCE1} 
 
@@ -131,6 +133,14 @@ if [ -s /etc/alsa/asound.state -a ! -s /etc/asound.state ] ; then
 fi
 
 %changelog
+* Mon Jan 12 2015 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-9
+- fix 'aplay -d' regression (Z-stream)
+- Resolves: rbhz#1148479
+
+* Fri Oct 24 2014 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-8
+- fix 'aplay -d' regression
+- Resolves: rbhz#1148479
+
 * Wed Jun 25 2014 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-7
 - ported fixes from alsa-utils 1.0.28
 - Resolves: rbhz#1072956
