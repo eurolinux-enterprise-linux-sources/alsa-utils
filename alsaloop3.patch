@@ -1,0 +1,37 @@
+From b72e221aab77229f5195c15b1675de8e52db3cb0 Mon Sep 17 00:00:00 2001
+From: Jaroslav Kysela <perex@perex.cz>
+Date: Sun, 13 May 2012 13:24:01 +0200
+Subject: [PATCH] alsaloop: fix the avail_min setup
+
+The previous code does not work as expected for some period_size
+configurations. We do not rely on the period size value, so do not
+correlate the avail_min parameter with this value.
+
+Signed-off-by: Jaroslav Kysela <perex@perex.cz>
+---
+ alsaloop/pcmjob.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/alsaloop/pcmjob.c b/alsaloop/pcmjob.c
+index c9b120f..139b6fd 100644
+--- a/alsaloop/pcmjob.c
++++ b/alsaloop/pcmjob.c
+@@ -246,15 +246,11 @@ static int setparams_set(struct loopback_handle *lhandle,
+ 	} else {
+ 		if (lhandle == lhandle->loopback->play) {
+ 			val = bufsize + bufsize / 2;
+-			if (val < (period_size * 3) / 4)
+-				val = (period_size * 3) / 4;
+ 			if (val > (buffer_size * 3) / 4)
+ 				val = (buffer_size * 3) / 4;
+ 			val = buffer_size - val;
+ 		} else {
+ 			val = bufsize / 2;
+-			if (val < period_size / 2)
+-				val = period_size / 2;
+ 			if (val > buffer_size / 4)
+ 				val = buffer_size / 4;
+ 		}
+-- 
+1.7.7.6
+
