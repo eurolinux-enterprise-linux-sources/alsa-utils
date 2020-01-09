@@ -5,7 +5,7 @@
 Summary: Advanced Linux Sound Architecture (ALSA) utilities
 Name:    alsa-utils
 Version: 1.0.22
-Release: 5%{?prever_dot}%{?dist}
+Release: 7%{?prever_dot}%{?dist}
 License: GPLv2+
 Group:   Applications/Multimedia
 URL:     http://www.alsa-project.org/
@@ -22,6 +22,8 @@ Patch3:  fixes.patch
 Patch4:  alsactl1.patch
 Patch5:  alsaloop3.patch
 Patch6:  fixes2.patch
+Patch7:  alsaloop4.patch
+Patch8:  fixes3.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: alsa-lib-devel >= %{version}
 BuildRequires: ncurses-devel
@@ -42,6 +44,8 @@ Architecture (ALSA).
 %patch4 -p1 -b .alsactl1
 %patch5 -p1 -b .alsaloop3
 %patch6 -p1 -b .fixes2
+%patch7 -p1 -b .alsaloop4
+%patch8 -p1 -b .fixes3
 # sample rate stuff
 tar xzf %{SOURCE1} 
 
@@ -127,6 +131,10 @@ if [ -s /etc/alsa/asound.state -a ! -s /etc/asound.state ] ; then
 fi
 
 %changelog
+* Wed Jun 25 2014 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-7
+- ported fixes from alsa-utils 1.0.28
+- Resolves: rbhz#1072956
+
 * Wed Sep 12 2012 Jaroslav Kysela <jkysela@redhat.com> 1.0.22-5
 - ported fixes and enhancements (except UCM) from alsa-utils 1.0.26
 - Resolves: rbhz#838951 
@@ -258,7 +266,7 @@ fi
 - added more funcionality to salsa (save/load sound settings),
   moved volume settings to /etc/alsa/
 
-* Thu Apr 10 2007 Martin Stransky <stransky@redhat.com> 1.0.14-0.4.rc2
+* Tue Apr 10 2007 Martin Stransky <stransky@redhat.com> 1.0.14-0.4.rc2
 - added support for large files
 - minor fix in alsaunmute
 - fixed #209239 - alsaconf: Stale language-dependent files
